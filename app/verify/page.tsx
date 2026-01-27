@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+
+// Force dynamic rendering to prevent prerendering errors on Vercel
+export const dynamic = 'force-dynamic';
 import Image from "next/image";
 import Link from "next/link";
 import { PARTY_LIST_MEMBERS } from "@/lib/constants";

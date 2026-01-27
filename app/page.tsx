@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+
+// Force dynamic rendering to prevent prerendering errors on Vercel
+export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
