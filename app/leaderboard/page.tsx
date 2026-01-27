@@ -22,6 +22,7 @@ const PROFILE_PICS: Record<string, string> = {
   Jern: "jern.png",
   Tae: "tae.png",
   Proud: "proud.png",
+  Praew: "praew.png",
   Mild: "mild.png",
   Son: "son.png",
 };

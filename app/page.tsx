@@ -11,7 +11,7 @@ import { otpEncrypt, generateSalt } from "@/lib/crypto";
 import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
 
-const NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Mild", "Son"];
+const NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Praew", "Mild", "Son"];
 
 export default function Home() {
   const router = useRouter();
@@ -23,6 +23,16 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if submission is past the deadline (Feb 1, 2026 7:00 AM Bangkok time)
+    const deadline = new Date('2026-02-01T07:00:00+07:00');
+    const now = new Date();
+
+    if (now >= deadline) {
+      alert('ขออภัย! ปิดรับการทายแล้ว\n\nเลยกำหนดเวลา 1 กุมภาพันธ์ 2569 เวลา 07:00 น.');
+      return;
+    }
+
     if (number && selectedName && selectedMember) {
       setIsSubmitting(true);
 

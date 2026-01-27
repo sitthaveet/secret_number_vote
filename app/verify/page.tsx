@@ -11,7 +11,7 @@ import { otpDecrypt } from "@/lib/crypto";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
 
-const USER_NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Mild", "Son"];
+const USER_NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Praew", "Mild", "Son"];
 
 interface UserData {
   name: string;
