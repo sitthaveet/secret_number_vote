@@ -3,13 +3,13 @@
 import { useState } from "react";
 
 // Force dynamic rendering to prevent prerendering errors on Vercel
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { PARTY_LIST_MEMBERS } from "@/lib/constants";
-import { otpEncrypt } from "@/lib/crypto";
+import { otpEncrypt, generateSalt } from "@/lib/crypto";
 import { supabase } from "@/lib/supabase";
+import Navbar from "@/components/Navbar";
 
 const NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Mild", "Son"];
 
@@ -25,7 +25,9 @@ export default function Home() {
     e.preventDefault();
     if (number && selectedName && selectedMember) {
       setIsSubmitting(true);
-      const encrypted = otpEncrypt(parseInt(number), selectedMember);
+
+      // Encrypt with random salt - returns { salt, hash }
+      const { salt, hash } = await otpEncrypt(parseInt(number), selectedMember);
 
       try {
         // Check if name already exists
@@ -40,13 +42,13 @@ export default function Home() {
           // Update existing user
           result = await supabase
             .from("user")
-            .update({ hash: encrypted })
+            .update({ hash: hash, salt: salt })
             .eq("name", selectedName);
         } else {
           // Insert new user
           result = await supabase
             .from("user")
-            .insert({ name: selectedName, hash: encrypted });
+            .insert({ name: selectedName, hash: hash, salt: salt });
         }
 
         if (result.error) {
@@ -63,7 +65,8 @@ export default function Home() {
         }
 
         setTimeout(() => {
-          setCiphertext(encrypted);
+          // Show hash for user reference
+          setCiphertext(hash);
           setIsSubmitting(false);
           // Redirect to leaderboard after showing the ciphertext
           setTimeout(() => {
@@ -73,7 +76,8 @@ export default function Home() {
       } catch (err) {
         console.error("Unexpected error:", err);
         setTimeout(() => {
-          setCiphertext(encrypted);
+          // Show hash for user reference
+          setCiphertext(hash);
           setIsSubmitting(false);
           // Redirect to leaderboard after showing the ciphertext
           setTimeout(() => {
@@ -87,40 +91,7 @@ export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0a0a0f]">
       {/* Navigation bar */}
-      <nav className="fixed top-0 z-50 w-full border-b border-[#2a2a40] bg-[#0a0a0f]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-[#ff6b35]/30">
-              <Image
-                src="/logo_people_party.jpeg"
-                alt="People's Party Logo"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <span className="font-[family-name:var(--font-kanit)] text-xl font-bold text-white">
-              ทาย<span className="text-[#ff6b35]">ที่นั่ง</span>
-            </span>
-          </Link>
-
-          {/* Navigation links */}
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium text-white transition-all duration-200 hover:bg-[#ff6b35]/10 hover:text-[#ff6b35]"
-            >
-              หน้าหลัก
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium text-white transition-all duration-200 hover:bg-[#ff6b35]/10 hover:text-[#ff6b35]"
-            >
-              ผลการเลือก
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar activePage="home" />
 
       {/* Animated background elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -221,6 +192,18 @@ export default function Home() {
                     </svg>
                     ชื่อของคุณ
                   </label>
+                  {selectedName && (
+                    <div className="mb-4 flex justify-center">
+                      <div className="relative h-16 w-16 overflow-hidden rounded-full border-4 border-[#ff6b35] shadow-lg shadow-[#ff6b35]/20 transition-transform duration-300 hover:scale-105">
+                        <Image
+                          src={`/userProfile/${selectedName.toLowerCase()}.png`}
+                          alt={selectedName}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="relative">
                     <select
                       value={selectedName}
@@ -410,7 +393,7 @@ export default function Home() {
                 </div>
                 <div className="animate-pulse-glow relative overflow-hidden rounded-2xl border border-[#ff6b35]/30 bg-[#0a0a0f] p-6">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#ff6b35]/5 to-transparent" />
-                  <p className="relative break-all font-[family-name:var(--font-space-mono)] text-4xl leading-relaxed tracking-widest text-[#ff8c5a] text-center">
+                  <p className="relative break-all font-[family-name:var(--font-space-mono)] text-3xl leading-relaxed tracking-widest text-[#ff8c5a] text-center">
                     {ciphertext}
                   </p>
                 </div>

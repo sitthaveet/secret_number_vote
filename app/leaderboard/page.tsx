@@ -5,12 +5,13 @@ import { useState, useEffect } from "react";
 // Force dynamic rendering to prevent prerendering errors on Vercel
 export const dynamic = 'force-dynamic';
 import Image from "next/image";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import Navbar from "@/components/Navbar";
 
 interface User {
   name: string;
   hash: string | null;
+  salt: string | null;
   created_at: string;
 }
 
@@ -37,7 +38,7 @@ export default function Leaderboard() {
     try {
       const { data, error } = await supabase
         .from("user")
-        .select("name, hash, created_at")
+        .select("name, hash, salt, created_at")
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -55,40 +56,7 @@ export default function Leaderboard() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0a0a0f]">
       {/* Navigation bar */}
-      <nav className="fixed top-0 z-50 w-full border-b border-[#2a2a40] bg-[#0a0a0f]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-8">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-4">
-            <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#ff6b35]/30">
-              <Image
-                src="/logo_people_party.jpeg"
-                alt="People's Party Logo"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <span className="font-[family-name:var(--font-kanit)] text-2xl font-bold text-white">
-              ทาย<span className="text-[#ff6b35]">ที่นั่ง</span>
-            </span>
-          </Link>
-
-          {/* Navigation links */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-xl px-8 py-4 font-[family-name:var(--font-kanit)] text-xl font-medium text-white transition-all duration-200 hover:bg-[#ff6b35]/10 hover:text-[#ff6b35]"
-            >
-              หน้าหลัก
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="rounded-xl bg-[#ff6b35]/10 px-8 py-4 font-[family-name:var(--font-kanit)] text-xl font-medium text-[#ff6b35] transition-all duration-200"
-            >
-              ผลการเลือก
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar activePage="leaderboard" />
 
       {/* Animated background elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -245,7 +213,7 @@ export default function Leaderboard() {
                         {user.name}
                       </h3>
 
-                      {user.hash ? (
+                      {user.hash && user.salt ? (
                         <div className="space-y-3">
                           <div className="overflow-hidden rounded-xl border border-[#ff6b35]/20 bg-[#0a0a0f] p-4">
                             <p className="break-all font-[family-name:var(--font-space-mono)] text-xl leading-relaxed tracking-wide text-[#ff8c5a]">

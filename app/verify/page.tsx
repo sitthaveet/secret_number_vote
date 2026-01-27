@@ -1,30 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Force dynamic rendering to prevent prerendering errors on Vercel
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { PARTY_LIST_MEMBERS } from "@/lib/constants";
 import { otpDecrypt } from "@/lib/crypto";
+import Navbar from "@/components/Navbar";
+import { supabase } from "@/lib/supabase";
+
+const USER_NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Mild", "Son"];
+
+interface UserData {
+  name: string;
+  hash: string | null;
+  salt: string | null;
+}
 
 export default function VerifyPage() {
-  const [ciphertext, setCiphertext] = useState("");
+  const [selectedName, setSelectedName] = useState("");
   const [selectedMember, setSelectedMember] = useState("");
+  const [fetchedHash, setFetchedHash] = useState("");
+  const [fetchedSalt, setFetchedSalt] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     number?: number;
     message: string;
   } | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [allUsers, setAllUsers] = useState<UserData[]>([]);
 
-  const handleDecrypt = (e: React.FormEvent) => {
+  // Fetch all users on mount
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      setIsFetching(true);
+      try {
+        const { data, error } = await supabase
+          .from("user")
+          .select("name, hash, salt");
+
+        if (error) {
+          console.error("Error fetching users:", error);
+          setAllUsers([]);
+        } else {
+          setAllUsers(data || []);
+        }
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        setAllUsers([]);
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchAllUsers();
+  }, []);
+
+  const handleNameSelect = (name: string) => {
+    setSelectedName(name);
+    setResult(null);
+    setFetchedHash("");
+    setFetchedSalt("");
+
+    if (!name) return;
+
+    // Find user in already-fetched data
+    const userData = allUsers.find((user) => user.name === name);
+
+    if (!userData) {
+      setResult({
+        success: false,
+        message: "ไม่พบข้อมูลของผู้ใช้นี้ในระบบ",
+      });
+    } else if (userData.hash && userData.salt) {
+      setFetchedHash(userData.hash);
+      setFetchedSalt(userData.salt);
+    } else {
+      setResult({
+        success: false,
+        message: "ผู้ใช้นี้ยังไม่ได้ทายเลข",
+      });
+    }
+  };
+
+  const handleDecrypt = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (ciphertext && selectedMember) {
+    if (fetchedHash && fetchedSalt && selectedMember) {
       setIsDecrypting(true);
-      setTimeout(() => {
-        const decrypted = otpDecrypt(ciphertext.toLowerCase(), selectedMember);
+      // Wait a bit to simulate processing/animation if desired, or just run directly.
+      // The original code had a setTimeout but in React state updates, it's cleaner to just await.
+      // However, to keep the UI feeling, we can keep a small delay or just rely on the async op.
+      // Let's keep the structure but make it async friendly.
+
+      setTimeout(async () => {
+        const decrypted = await otpDecrypt(
+          fetchedHash.toLowerCase(),
+          selectedMember,
+          fetchedSalt.toLowerCase(),
+        );
         if (decrypted !== null) {
           setResult({
             success: true,
@@ -45,40 +121,7 @@ export default function VerifyPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0a0a0f]">
       {/* Navigation bar */}
-      <nav className="fixed top-0 z-50 w-full border-b border-[#2a2a40] bg-[#0a0a0f]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-[#ff6b35]/30">
-              <Image
-                src="/logo_people_party.jpeg"
-                alt="People's Party Logo"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <span className="font-[family-name:var(--font-kanit)] text-xl font-bold text-white">
-              ทาย<span className="text-[#ff6b35]">ที่นั่ง</span>
-            </span>
-          </Link>
-
-          {/* Navigation links */}
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium text-white transition-all duration-200 hover:bg-[#ff6b35]/10 hover:text-[#ff6b35]"
-            >
-              หน้าหลัก
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium text-white transition-all duration-200 hover:bg-[#ff6b35]/10 hover:text-[#ff6b35]"
-            >
-              ผลการเลือก
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar activePage="verify" />
 
       {/* Animated background elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -139,7 +182,7 @@ export default function VerifyPage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-lg text-xl text-[#8888a0]">
-            ใส่รหัสยืนยันและเลือกผู้สมัครที่คุณใช้ตอนทาย
+            เลือกชื่อของคุณและเลือกผู้สมัครที่คุณใช้ตอนทาย
             <br />
             เพื่อดูจำนวนที่นั่งที่คุณทายไว้
           </p>
@@ -149,7 +192,7 @@ export default function VerifyPage() {
         <div className="animate-fade-in-up-delay-1 w-full max-w-xl">
           <div className="relative rounded-3xl border border-[#2a2a40] bg-[#141420]/80 p-10 shadow-2xl backdrop-blur-xl">
             <form onSubmit={handleDecrypt} className="space-y-8">
-              {/* Ciphertext input */}
+              {/* User name select */}
               <div className="space-y-3">
                 <label className="flex items-center gap-3 text-lg font-medium text-white/70">
                   <svg
@@ -162,24 +205,91 @@ export default function VerifyPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     />
                   </svg>
-                  รหัสยืนยัน (6 ตัวอักษร)
+                  เลือกชื่อของคุณ
                 </label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={ciphertext}
-                    onChange={(e) =>
-                      setCiphertext(e.target.value.slice(0, 6).toLowerCase())
-                    }
-                    placeholder="abc123"
-                    maxLength={6}
-                    className="h-20 w-full rounded-2xl border border-[#2a2a40] bg-[#1a1a2e] px-6 font-[family-name:var(--font-space-mono)] text-4xl font-bold tracking-widest text-[#ff6b35] placeholder-[#4a4a60] transition-all duration-200 hover:border-[#ff6b35]/50 focus:border-[#ff6b35] focus:outline-none focus:ring-2 focus:ring-[#ff6b35]/20 text-center uppercase"
-                  />
+                  <select
+                    value={selectedName}
+                    onChange={(e) => handleNameSelect(e.target.value)}
+                    disabled={isFetching}
+                    className="h-20 w-full cursor-pointer appearance-none rounded-2xl border border-[#2a2a40] bg-[#1a1a2e] px-6 pr-14 font-[family-name:var(--font-kanit)] text-xl text-white transition-all duration-200 hover:border-[#ff6b35]/50 focus:border-[#ff6b35] focus:outline-none focus:ring-2 focus:ring-[#ff6b35]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">— กรุณาเลือกชื่อ —</option>
+                    {USER_NAMES.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-[#ff6b35]">
+                    {isFetching ? (
+                      <svg
+                        className="h-7 w-7 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-7 w-7"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Display hash if available */}
+              {fetchedHash && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 text-lg font-medium text-white/70">
+                    <svg
+                      className="h-6 w-6 text-[#ff6b35]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+                      />
+                    </svg>
+                    รหัสที่เข้ารหัส
+                  </label>
+                  <div className="rounded-2xl border border-[#2a2a40] bg-[#1a1a2e] px-6 py-6">
+                    <p className="break-all font-[family-name:var(--font-space-mono)] text-2xl font-bold tracking-wider text-[#ff6b35]">
+                      {fetchedHash}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Member select */}
               <div className="space-y-3">
@@ -234,7 +344,11 @@ export default function VerifyPage() {
               <button
                 type="submit"
                 disabled={
-                  ciphertext.length !== 6 || !selectedMember || isDecrypting
+                  !fetchedHash ||
+                  !fetchedSalt ||
+                  !selectedMember ||
+                  isDecrypting ||
+                  isFetching
                 }
                 className="group relative h-20 w-full overflow-hidden rounded-2xl bg-gradient-to-r from-[#ff6b35] to-[#ff8c5a] font-[family-name:var(--font-kanit)] text-2xl font-semibold text-white shadow-lg shadow-[#ff6b35]/25 transition-all duration-300 hover:shadow-xl hover:shadow-[#ff6b35]/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
@@ -296,35 +410,6 @@ export default function VerifyPage() {
                   }`}
                 >
                   <div className="flex items-center justify-center gap-4">
-                    {result.success ? (
-                      <svg
-                        className="h-12 w-12 text-green-500"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="h-12 w-12 text-red-500"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    )}
                     <div className="text-center">
                       {result.success && result.number !== undefined && (
                         <p className="font-[family-name:var(--font-space-mono)] text-6xl font-bold text-green-400">

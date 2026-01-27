@@ -1,77 +1,116 @@
 /**
  * OTP (One-Time Pad) symmetric encryption using XOR
- * Uses the politician's name as the key
+ * Uses the politician's name as the key combined with a random salt for enhanced security
  */
 
 /**
- * Encrypts a number (0-500) using OTP with the given key
- * @param number - The number to encrypt (0-500)
- * @param key - The key string (politician name)
- * @returns 6-character hex string
+ * Generates a random 6-character hex salt (3 bytes)
+ * @returns 6-character hex string representing 3 random bytes
  */
-export function otpEncrypt(number: number, key: string): string {
-  // Pad number to 3 digits: "7" → "007"
-  const plaintext = number.toString().padStart(3, "0");
-
-  // Convert plaintext and key to UTF-8 bytes
-  const encoder = new TextEncoder();
-  const plaintextBytes = encoder.encode(plaintext);
-  const keyBytes = encoder.encode(key);
-
-  // XOR each plaintext byte with corresponding key byte
-  const ciphertextBytes = new Uint8Array(plaintextBytes.length);
-  for (let i = 0; i < plaintextBytes.length; i++) {
-    ciphertextBytes[i] = plaintextBytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-
-  // Output as 6-character hex string
-  return Array.from(ciphertextBytes)
+export function generateSalt(): string {
+  const saltBytes = new Uint8Array(3);
+  crypto.getRandomValues(saltBytes);
+  return Array.from(saltBytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
 
 /**
- * Decrypts a ciphertext using OTP with the given key
- * @param ciphertextHex - 6-character hex string
- * @param key - The key string (politician name)
- * @returns The decrypted number (0-500) or null if invalid
+ * Helper to compute SHA-256 hash of a string
  */
-export function otpDecrypt(ciphertextHex: string, key: string): number | null {
-  // Validate hex length
-  if (ciphertextHex.length !== 6) {
-    return null;
-  }
-
-  // Parse hex to bytes
-  const ciphertextBytes = new Uint8Array(3);
-  for (let i = 0; i < 3; i++) {
-    const hexPair = ciphertextHex.slice(i * 2, i * 2 + 2);
-    const byte = parseInt(hexPair, 16);
-    if (isNaN(byte)) {
-      return null;
-    }
-    ciphertextBytes[i] = byte;
-  }
-
-  // Convert key to UTF-8 bytes
+async function sha256(text: string): Promise<Uint8Array> {
   const encoder = new TextEncoder();
-  const keyBytes = encoder.encode(key);
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return new Uint8Array(hashBuffer);
+}
 
-  // XOR with key bytes (same operation as encrypt)
-  const plaintextBytes = new Uint8Array(ciphertextBytes.length);
-  for (let i = 0; i < ciphertextBytes.length; i++) {
-    plaintextBytes[i] = ciphertextBytes[i] ^ keyBytes[i % keyBytes.length];
+/**
+ * Encrypts a number using OTP with the given key and salt
+ * @param number - The number to encrypt
+ * @param key - The key string (politician name)
+ * @param salt - Optional 6-character hex salt (if not provided, generates new one)
+ * @returns Object containing salt and hash separately
+ */
+export async function otpEncrypt(
+  number: number,
+  key: string,
+  salt?: string,
+): Promise<{ salt: string; hash: string }> {
+  // Generate salt if not provided
+  const saltHex = salt || generateSalt();
+
+  // 1. Make the number to be binary format (3 bytes to match salt/hash length)
+  const numberBytes = new Uint8Array(3);
+  // Store in Big Endian
+  numberBytes[0] = (number >> 16) & 0xff;
+  numberBytes[1] = (number >> 8) & 0xff;
+  numberBytes[2] = number & 0xff;
+
+  // 2. Derive mask from key + salt using SHA-256
+  // This ensures even a small change in key/salt produces a completely different mask
+  const mask = await sha256(key + saltHex);
+
+  // 3. OTP (hash = number ^ mask)
+  // We only need 3 bytes for the hash, so we use the first 3 bytes of the SHA-256 hash
+  const hashBytes = new Uint8Array(3);
+  for (let i = 0; i < 3; i++) {
+    hashBytes[i] = numberBytes[i] ^ mask[i];
   }
 
-  // Convert back to string
-  const decoder = new TextDecoder();
-  const plaintext = decoder.decode(plaintextBytes);
+  // 4. The outcome will be called 'hash' (convert to hex string)
+  const hashHex = Array.from(hashBytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-  // Validate that it's a valid number
-  const number = parseInt(plaintext, 10);
-  if (isNaN(number) || number < 0 || number > 500) {
+  return {
+    salt: saltHex,
+    hash: hashHex,
+  };
+}
+
+/**
+ * Decrypts a hash using OTP with the given key and salt
+ * @param hash - 6-character hex string (the encrypted ciphertext)
+ * @param key - The key string (politician name)
+ * @param salt - 6-character hex salt (must match the salt used during encryption)
+ * @returns The decrypted number (0-16,777,215) or null if invalid format
+ */
+export async function otpDecrypt(
+  hash: string,
+  key: string,
+  salt: string,
+): Promise<number | null> {
+  // Validate lengths
+  if (hash.length !== 6 || salt.length !== 6) {
     return null;
   }
+
+  // 1. Get hash in binary format
+  const hashBytes = new Uint8Array(3);
+  for (let i = 0; i < 3; i++) {
+    const h = parseInt(hash.slice(i * 2, i * 2 + 2), 16);
+    if (isNaN(h)) return null;
+    hashBytes[i] = h;
+  }
+
+  // 2. Derive mask from key + salt using SHA-256
+  const mask = await sha256(key + salt);
+
+  // 3. OTP (number = hash ^ mask)
+  const numberBytes = new Uint8Array(3);
+  for (let i = 0; i < 3; i++) {
+    numberBytes[i] = hashBytes[i] ^ mask[i];
+  }
+
+  // 4. Turn it into the decimal number
+  // Reconstruct from Big Endian
+  const number =
+    (numberBytes[0] << 16) | (numberBytes[1] << 8) | numberBytes[2];
+
+  // Note: We removed the range check (0-500).
+  // If the key is wrong, the mask will be completely different,
+  // resulting in a random number roughly uniformly distributed between 0 and 16,777,215.
 
   return number;
 }
