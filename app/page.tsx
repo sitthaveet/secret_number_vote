@@ -370,7 +370,7 @@ export default function Home() {
                   <p className="text-sm text-[#8888a0] text-right">
                     {useCustomSecurity
                       ? "เพิ่มความปลอดภัย ต้องจำเลขที่ทายเพื่อถอดรหัส"
-                      : "ไม่ต้องจำเลข เชื่อใจซันถอดรหัสให้"}
+                      : "ไม่ต้องจำเลข เชื่อใจว่าซันจะไม่โกง"}
                   </p>
                 </div>
               </div>
