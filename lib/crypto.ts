@@ -29,16 +29,15 @@ async function sha256(text: string): Promise<Uint8Array> {
  * Encrypts a number using OTP with the given key and salt
  * @param number - The number to encrypt
  * @param key - The key string (politician name)
- * @param salt - Optional 6-character hex salt (if not provided, generates new one)
  * @returns Object containing salt and hash separately
  */
 export async function otpEncrypt(
   number: number,
   key: string,
-  salt?: string,
+  extraKey?: string,
 ): Promise<{ salt: string; hash: string }> {
   // Generate salt if not provided
-  const saltHex = salt || generateSalt();
+  const saltHex = generateSalt();
 
   // 1. Make the number to be binary format (3 bytes to match salt/hash length)
   const numberBytes = new Uint8Array(3);
@@ -47,9 +46,9 @@ export async function otpEncrypt(
   numberBytes[1] = (number >> 8) & 0xff;
   numberBytes[2] = number & 0xff;
 
-  // 2. Derive mask from key + salt using SHA-256
+  // 2. Derive mask from key + (extraKey) + salt using SHA-256
   // This ensures even a small change in key/salt produces a completely different mask
-  const mask = await sha256(key + saltHex);
+  const mask = await sha256(key + (extraKey || "") + saltHex);
 
   // 3. OTP (hash = number ^ mask)
   // We only need 3 bytes for the hash, so we use the first 3 bytes of the SHA-256 hash
@@ -80,6 +79,7 @@ export async function otpDecrypt(
   hash: string,
   key: string,
   salt: string,
+  extraKey?: string,
 ): Promise<number | null> {
   // Validate lengths
   if (hash.length !== 6 || salt.length !== 6) {
@@ -94,8 +94,8 @@ export async function otpDecrypt(
     hashBytes[i] = h;
   }
 
-  // 2. Derive mask from key + salt using SHA-256
-  const mask = await sha256(key + salt);
+  // 2. Derive mask from key + (extraKey) + salt using SHA-256
+  const mask = await sha256(key + (extraKey || "") + salt);
 
   // 3. OTP (number = hash ^ mask)
   const numberBytes = new Uint8Array(3);

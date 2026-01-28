@@ -86,6 +86,7 @@ CREATE TABLE public.user (
   name text UNIQUE NOT NULL,
   hash text,
   salt text,
+  securityOption boolean,
   updated_at timestamp with time zone DEFAULT now()
 );
 

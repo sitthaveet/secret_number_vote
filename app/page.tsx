@@ -10,6 +10,7 @@ import { PARTY_LIST_MEMBERS } from "@/lib/constants";
 import { otpEncrypt, generateSalt } from "@/lib/crypto";
 import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
+import { Switch } from "@/components/ui/switch";
 
 const NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Praew", "Mild", "Son"];
 
@@ -20,6 +21,7 @@ export default function Home() {
   const [selectedName, setSelectedName] = useState("");
   const [selectedMember, setSelectedMember] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useCustomSecurity, setUseCustomSecurity] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +39,12 @@ export default function Home() {
       setIsSubmitting(true);
 
       // Encrypt with random salt - returns { salt, hash }
-      const { salt, hash } = await otpEncrypt(parseInt(number), selectedMember);
+      // If useCustomSecurity is on, pass the number as extraKey
+      const { salt, hash } = await otpEncrypt(
+        parseInt(number),
+        selectedMember,
+        useCustomSecurity ? number : undefined
+      );
 
       try {
         // Check if name already exists
@@ -52,13 +59,22 @@ export default function Home() {
           // Update existing user
           result = await supabase
             .from("user")
-            .update({ hash: hash, salt: salt })
+            .update({
+              hash: hash,
+              salt: salt,
+              securityOption: useCustomSecurity
+            })
             .eq("name", selectedName);
         } else {
           // Insert new user
           result = await supabase
             .from("user")
-            .insert({ name: selectedName, hash: hash, salt: salt });
+            .insert({
+              name: selectedName,
+              hash: hash,
+              salt: salt,
+              securityOption: useCustomSecurity
+            });
         }
 
         if (result.error) {
@@ -322,6 +338,40 @@ export default function Home() {
                       />
                     </svg>
                   </div>
+                </div>
+              </div>
+
+              {/* Security toggle - configuration option */}
+              <div className="flex justify-end">
+                <div className="w-full max-w-md space-y-3 rounded-xl border border-[#2a2a40]/50 bg-[#1a1a2e]/50 px-6 py-5 transition-all duration-200">
+                  <div className="flex items-center justify-end gap-4">
+                    <svg
+                      className="h-6 w-6 text-[#8888a0]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    <span className="font-[family-name:var(--font-kanit)] text-lg text-white/80">
+                      ระดับความปลอดภัย
+                    </span>
+                    <Switch
+                      checked={useCustomSecurity}
+                      onCheckedChange={setUseCustomSecurity}
+                      className="data-[state=checked]:bg-[#ff6b35]"
+                    />
+                  </div>
+                  <p className="text-sm text-[#8888a0] text-right">
+                    {useCustomSecurity
+                      ? "เพิ่มความปลอดภัย ต้องจำเลขที่ทายเพื่อถอดรหัส"
+                      : "ไม่ต้องจำเลข เชื่อใจซันถอดรหัสให้"}
+                  </p>
                 </div>
               </div>
 

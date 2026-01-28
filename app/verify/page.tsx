@@ -11,12 +11,22 @@ import { otpDecrypt } from "@/lib/crypto";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/lib/supabase";
 
-const USER_NAMES = ["Karn", "Petch", "Jern", "Tae", "Proud", "Praew", "Mild", "Son"];
+const USER_NAMES = [
+  "Karn",
+  "Petch",
+  "Jern",
+  "Tae",
+  "Proud",
+  "Praew",
+  "Mild",
+  "Son",
+];
 
 interface UserData {
   name: string;
   hash: string | null;
   salt: string | null;
+  securityOption: boolean | null;
 }
 
 export default function VerifyPage() {
@@ -24,6 +34,8 @@ export default function VerifyPage() {
   const [selectedMember, setSelectedMember] = useState("");
   const [fetchedHash, setFetchedHash] = useState("");
   const [fetchedSalt, setFetchedSalt] = useState("");
+  const [fetchedSecurityOption, setFetchedSecurityOption] = useState(false);
+  const [extraKeyNumber, setExtraKeyNumber] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     number?: number;
@@ -40,7 +52,7 @@ export default function VerifyPage() {
       try {
         const { data, error } = await supabase
           .from("user")
-          .select("name, hash, salt");
+          .select("name, hash, salt, securityOption");
 
         if (error) {
           console.error("Error fetching users:", error);
@@ -64,6 +76,8 @@ export default function VerifyPage() {
     setResult(null);
     setFetchedHash("");
     setFetchedSalt("");
+    setFetchedSecurityOption(false);
+    setExtraKeyNumber("");
 
     if (!name) return;
 
@@ -78,6 +92,7 @@ export default function VerifyPage() {
     } else if (userData.hash && userData.salt) {
       setFetchedHash(userData.hash);
       setFetchedSalt(userData.salt);
+      setFetchedSecurityOption(userData.securityOption || false);
     } else {
       setResult({
         success: false,
@@ -89,24 +104,37 @@ export default function VerifyPage() {
   const handleDecrypt = async (e: React.FormEvent) => {
     e.preventDefault();
     if (fetchedHash && fetchedSalt && selectedMember) {
+      // Check if security option is on but number is not provided
+      if (fetchedSecurityOption && !extraKeyNumber) {
+        setResult({
+          success: false,
+          message: "กรุณากรอกจำนวนที่นั่ง ส.ส. ที่คุณทายไว้",
+        });
+        return;
+      }
+
       setIsDecrypting(true);
-      // Wait a bit to simulate processing/animation if desired, or just run directly.
-      // The original code had a setTimeout but in React state updates, it's cleaner to just await.
-      // However, to keep the UI feeling, we can keep a small delay or just rely on the async op.
-      // Let's keep the structure but make it async friendly.
 
       setTimeout(async () => {
         const decrypted = await otpDecrypt(
           fetchedHash.toLowerCase(),
           selectedMember,
           fetchedSalt.toLowerCase(),
+          fetchedSecurityOption ? extraKeyNumber : undefined,
         );
         if (decrypted !== null) {
-          setResult({
-            success: true,
-            number: decrypted,
-            message: `ผลการทาย: ${decrypted} ที่นั่ง`,
-          });
+          if (decrypted >= 0 && decrypted <= 500) {
+            setResult({
+              success: true,
+              number: decrypted,
+              message: `ผลการทาย: ${decrypted} ที่นั่ง`,
+            });
+          } else {
+            setResult({
+              success: false,
+              message: "เลือกข้อมูลผิด",
+            });
+          }
         } else {
           setResult({
             success: false,
@@ -288,6 +316,46 @@ export default function VerifyPage() {
                       {fetchedHash}
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* Extra security number input - only show if securityOption is true */}
+              {fetchedSecurityOption && fetchedHash && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 text-lg font-medium text-white/70">
+                    <svg
+                      className="h-6 w-6 text-[#ff6b35]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    จำนวนที่นั่ง ส.ส. ที่คุณทายไว้
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={extraKeyNumber}
+                      onChange={(e) => setExtraKeyNumber(e.target.value)}
+                      placeholder="0 - 500"
+                      min="0"
+                      max="500"
+                      className="h-20 w-full rounded-2xl border border-[#2a2a40] bg-[#1a1a2e] px-6 font-[family-name:var(--font-space-mono)] text-4xl font-bold tracking-wider text-[#ff6b35] placeholder-[#4a4a60] transition-all duration-200 hover:border-[#ff6b35]/50 focus:border-[#ff6b35] focus:outline-none focus:ring-2 focus:ring-[#ff6b35]/20"
+                    />
+                    <div className="pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-lg text-[#4a4a60]">
+                      ที่นั่ง
+                    </div>
+                  </div>
+                  <p className="text-sm text-[#8888a0]">
+                    คุณเปิดใช้งานความปลอดภัยเพิ่มเติม
+                    กรุณากรอกจำนวนที่นั่งที่คุณทายไว้
+                  </p>
                 </div>
               )}
 
