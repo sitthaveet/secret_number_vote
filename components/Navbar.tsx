@@ -38,7 +38,7 @@ export default function Navbar({ activePage }: NavbarProps) {
           >
             ผลการเลือก
           </Link>
-          {/* <Link
+          <Link
             href="/verify"
             className={`rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium transition-all duration-200 ${
               activePage === "verify"
@@ -47,7 +47,7 @@ export default function Navbar({ activePage }: NavbarProps) {
             }`}
           >
             ตรวจสอบรหัส
-          </Link> */}
+          </Link>
         </div>
       </div>
     </nav>
