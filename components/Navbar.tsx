@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 interface NavbarProps {
-  activePage: "home" | "leaderboard" | "verify";
+  activePage: "home" | "leaderboard" | "verify" | "event";
 }
 
 export default function Navbar({ activePage }: NavbarProps) {
@@ -28,6 +28,16 @@ export default function Navbar({ activePage }: NavbarProps) {
 
         {/* Navigation links */}
         <div className="flex items-center gap-2">
+          <Link
+            href="/event"
+            className={`rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium transition-all duration-200 ${
+              activePage === "event"
+                ? "bg-[#ff6b35]/10 text-[#ff6b35]"
+                : "text-white hover:bg-[#ff6b35]/10 hover:text-[#ff6b35]"
+            }`}
+          >
+            วันสรุปเกม
+          </Link>
           <Link
             href="/leaderboard"
             className={`rounded-xl px-6 py-3 font-[family-name:var(--font-kanit)] text-lg font-medium transition-all duration-200 ${
